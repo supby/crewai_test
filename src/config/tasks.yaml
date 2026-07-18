@@ -1,0 +1,21 @@
+# Task configuration for CrewAI project
+# These can be used as an alternative to programmatic task definitions.
+
+research_task:
+  description: >
+    Research the following topic thoroughly: {topic}
+    Gather key facts, recent developments, and relevant data points.
+    Organize your findings in a structured format.
+  expected_output: >
+    A comprehensive research summary with key findings,
+    data points, and sources organized by subtopic.
+  agent: researcher
+
+writing_task:
+  description: >
+    Using the research provided, write a well-structured article about: {topic}
+    The article should be informative, engaging, and accessible to a general audience.
+  expected_output: >
+    A polished article of 500-800 words with clear sections,
+    an introduction, body, and conclusion.
+  agent: writer

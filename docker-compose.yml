@@ -1,0 +1,12 @@
+services:
+  crewai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: crewai-app
+    container_name: crewai-app
+    env_file:
+      - .env
+    volumes:
+      - ./output:/app/output
+    restart: "no"

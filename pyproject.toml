@@ -1,0 +1,19 @@
+[project]
+name = "crewai-project"
+version = "0.1.0"
+description = "A CrewAI multi-agent project running in Docker"
+requires-python = ">=3.11"
+dependencies = [
+    "crewai>=0.86.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+crewai-project = "src.main:run"
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
