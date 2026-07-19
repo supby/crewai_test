@@ -2,12 +2,19 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (including Node.js for MCP servers via npx)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
         curl \
+        git \
+        nodejs \
+        npm \
     && rm -rf /var/lib/apt/lists/*
+
+# Install glab CLI for GitLab operations
+RUN curl -fsSL https://gitlab.com/gitlab-org/cli/-/releases/latest/downloads/glab_Linux_x86_64.tar.gz \
+    | tar -xz -C /usr/local/bin --strip-components=1 bin/glab
 
 # Copy dependency files first for better layer caching
 COPY requirements.txt .

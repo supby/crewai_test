@@ -1,85 +1,117 @@
-# CrewAI Project
+# CrewAI Jira Dev Flow
 
-A multi-agent AI project built with [CrewAI](https://github.com/crewAIInc/crewAI), containerized with Docker for easy deployment.
+Automated development pipeline: **Jira Task Analyzer → Developer → MR Reviewer**
+
+Built with [CrewAI Flows](https://docs.crewai.com/concepts/flows), running in Docker.
+
+## Architecture
+
+```
+┌─────────────────┐     ┌─────────────┐     ┌──────────────────┐
+│  Task Analyzer  │────▶│  Developer  │────▶│  MR Reviewer     │
+│  (Jira/DD/GL)   │     │  (GitLab)   │     │  (GitLab)        │
+└────────┬────────┘     └──────┬──────┘     └────────┬─────────┘
+         │                     │                     │
+         ▼                     │                     ▼
+   ┌───────────┐               │              ┌───────────┐
+   │ Stop:     │               │              │ Approved  │
+   │ - no info │               │              │    OR     │
+   │ - no dev  │               ◀──────────────│ Changes   │
+   └───────────┘           (loop back)        │ Requested │
+                                              └───────────┘
+```
+
+## Flow Steps
+
+1. **Task Analyzer** — Reads Jira task (with 'AI' tag), checks DataDog metrics, reviews code in GitLab. Outputs:
+   - `action_needed` → passes task definition to Developer
+   - `insufficient_info` → stops, notifies user
+   - `no_dev_needed` → stops, notifies user
+
+2. **Developer** — Implements changes, creates a branch + merge request in GitLab.
+
+3. **MR Reviewer** — Reviews the MR diff. Outputs:
+   - `approved` → adds "Approved" comment, notifies user
+   - `changes_requested` → loops back to Developer with feedback (max 3 iterations)
 
 ## Project Structure
 
 ```
-crewai-project/
 ├── src/
 │   ├── __init__.py
-│   ├── main.py          # Entry point
-│   ├── crew.py          # Crew assembly
-│   ├── agents.py        # Agent definitions
-│   └── tasks.py         # Task definitions
-├── config/
-│   ├── agents.yaml      # Agent config (reference)
-│   └── tasks.yaml       # Task config (reference)
+│   ├── main.py              # Entry point (CLI + env var)
+│   ├── crew.py              # Flow definition with routing
+│   ├── tools.py             # MCP server configurations
+│   └── config/
+│       ├── agents.yaml      # Agent definitions (roles, LLM)
+│       ├── tasks.yaml       # Task templates
+│       └── flow.yaml        # Project paths, settings
 ├── Dockerfile
 ├── docker-compose.yml
+├── Makefile
 ├── pyproject.toml
 ├── requirements.txt
 ├── .env.example
-└── .dockerignore
+└── output/                  # Flow results (mounted volume)
 ```
 
-## Getting Started
+## Setup
 
 ### Prerequisites
 
 - Docker and Docker Compose
-- An OpenAI API key (or another LLM provider key supported by CrewAI)
+- Gemini API key
+- Jira API token
+- DataDog API + App keys
+- GitLab personal access token
 
-### Setup
+### Configuration
 
-1. Copy the environment file and add your API key:
-
+1. Copy and fill in secrets:
    ```bash
    cp .env.example .env
-   # Edit .env and set your OPENAI_API_KEY
+   # Edit .env with your credentials
    ```
 
-2. (Optional) Customize the topic in `.env`:
+2. Edit `src/config/flow.yaml` to list your local project paths and GitLab project mappings.
 
-   ```
-   CREW_TOPIC=Your custom research topic here
-   ```
+3. Mount your project directories in `docker-compose.yml` volumes section.
 
-### Running with Docker
+## Usage
 
-Build and run the container:
-
+### Run with Docker Compose
 ```bash
-docker compose up --build
+make up
 ```
 
-Run in detached mode:
-
+### Run with docker run (pass task key)
 ```bash
-docker compose up --build -d
-docker compose logs -f crewai
+make docker-run TASK=PROJ-123
 ```
 
-### Running Locally (without Docker)
-
+### Run locally
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
-python -m src.main
+make run TASK=PROJ-123
 ```
 
-## Customization
-
-- **Agents**: Modify `src/agents.py` to add or change agents.
-- **Tasks**: Modify `src/tasks.py` to define new workflows.
-- **Crew**: Modify `src/crew.py` to change the process type (sequential, hierarchical) or add more agents/tasks.
-- **Config**: The `config/` YAML files serve as a reference for agent/task definitions and can be integrated with CrewAI's YAML-based configuration if preferred.
-
-## Environment Variables
+### Environment variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `OPENAI_API_KEY` | Yes | Your OpenAI API key |
-| `OPENAI_MODEL_NAME` | No | Override the default model (e.g., `gpt-4o`) |
-| `CREW_TOPIC` | No | The topic for the crew to research |
+| `GEMINI_API_KEY` | Yes | Google Gemini API key |
+| `JIRA_BASE_URL` | Yes | Jira instance URL |
+| `JIRA_EMAIL` | Yes | Jira account email |
+| `JIRA_API_TOKEN` | Yes | Jira API token |
+| `DD_API_KEY` | Yes | DataDog API key |
+| `DD_APP_KEY` | Yes | DataDog App key |
+| `DD_SITE` | No | DataDog site (default: datadoghq.com) |
+| `GITLAB_TOKEN` | Yes | GitLab personal access token |
+| `GITLAB_URL` | No | GitLab instance URL (default: https://gitlab.com) |
+| `JIRA_TASK_KEY` | No | Jira task to process (or pass as CLI arg) |
+
+## Customization
+
+- **LLM**: Change the `llm` field in `src/config/agents.yaml`
+- **Projects**: Edit `src/config/flow.yaml` to add/remove project paths
+- **MCP servers**: Edit `src/tools.py` to swap MCP server packages
+- **Review iterations**: Set `max_review_iterations` in `src/config/flow.yaml`

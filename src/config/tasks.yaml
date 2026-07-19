@@ -1,21 +1,118 @@
-# Task configuration for CrewAI project
-# These can be used as an alternative to programmatic task definitions.
+# Task configuration for CrewAI Jira → Developer → Reviewer flow
 
-research_task:
+analyze_jira_task:
   description: >
-    Research the following topic thoroughly: {topic}
-    Gather key facts, recent developments, and relevant data points.
-    Organize your findings in a structured format.
-  expected_output: >
-    A comprehensive research summary with key findings,
-    data points, and sources organized by subtopic.
-  agent: researcher
+    Analyze the Jira task: {jira_task_key}
 
-writing_task:
-  description: >
-    Using the research provided, write a well-structured article about: {topic}
-    The article should be informative, engaging, and accessible to a general audience.
+    Steps:
+    1. Fetch the Jira task details (summary, description, comments, acceptance criteria).
+    2. Check DataDog for any related errors, metrics, or alerts mentioned in the task.
+    3. Examine the relevant project(s) codebase to understand current implementation.
+    4. Determine the scope of work required.
+
+    Based on your analysis, produce ONE of the following outcomes:
+    - "action_needed": A detailed task definition specifying exactly what code changes
+      are needed and in which project(s). Include file paths, function names, and
+      expected behavior.
+    - "insufficient_info": If the Jira task lacks critical information needed to proceed.
+      Explain what information is missing.
+    - "no_dev_needed": If the task does not require any code changes (e.g., it's a
+      question, documentation-only, or already resolved).
+
+    Available projects: {project_paths}
   expected_output: >
-    A polished article of 500-800 words with clear sections,
-    an introduction, body, and conclusion.
-  agent: writer
+    A JSON object with the following structure:
+    {
+      "outcome": "action_needed" | "insufficient_info" | "no_dev_needed",
+      "project_path": "<path to the project requiring changes>",
+      "summary": "<brief summary of what needs to be done>",
+      "details": "<detailed implementation instructions or explanation>",
+      "affected_files": ["<list of files likely to be modified>"],
+      "jira_task_key": "<the original jira task key>"
+    }
+  agent: task_analyzer
+
+implement_changes:
+  description: >
+    Implement the following task in project: {project_path}
+
+    Task summary: {task_summary}
+
+    Detailed instructions:
+    {task_details}
+
+    Affected files: {affected_files}
+
+    Steps:
+    1. Read and understand the current code in the affected files.
+    2. Create a new branch from the default branch (name it: feature/{jira_task_key}).
+    3. Implement the required changes following existing code conventions.
+    4. Commit the changes with a descriptive message referencing the Jira task.
+    5. Push the branch and create a merge request in GitLab.
+    6. The MR title should reference the Jira task key.
+    7. The MR description should explain what was changed and why.
+
+    GitLab project path: {gitlab_project_path}
+  expected_output: >
+    A JSON object with the following structure:
+    {
+      "merge_request_url": "<URL of the created merge request>",
+      "merge_request_iid": "<MR IID number>",
+      "branch_name": "<name of the created branch>",
+      "changes_summary": "<summary of implemented changes>",
+      "gitlab_project_path": "<gitlab project path>"
+    }
+  agent: developer
+
+implement_review_fixes:
+  description: >
+    Fix the review comments on merge request: {merge_request_url}
+
+    Review feedback:
+    {review_feedback}
+
+    Steps:
+    1. Read the review comments and understand what changes are required.
+    2. Checkout the existing branch: {branch_name}
+    3. Implement the requested fixes.
+    4. Commit and push the changes.
+    5. Reply to review comments indicating the fixes have been made.
+
+    GitLab project path: {gitlab_project_path}
+  expected_output: >
+    A JSON object with the following structure:
+    {
+      "merge_request_url": "<URL of the merge request>",
+      "merge_request_iid": "<MR IID number>",
+      "fixes_summary": "<summary of fixes applied>",
+      "gitlab_project_path": "<gitlab project path>"
+    }
+  agent: developer
+
+review_merge_request:
+  description: >
+    Review the merge request: {merge_request_url}
+    GitLab project: {gitlab_project_path}
+    MR IID: {merge_request_iid}
+
+    Steps:
+    1. Fetch the merge request diff from GitLab.
+    2. Review the code changes for:
+       - Correctness (does it solve the stated problem?)
+       - Code quality (clean, readable, follows conventions)
+       - Security (no vulnerabilities introduced)
+       - Performance (no obvious performance issues)
+       - Test coverage (are changes adequately tested?)
+    3. Based on your review, produce ONE of the following outcomes:
+       - "approved": The MR is good to merge. Add an "Approved" comment.
+       - "changes_requested": Specific changes are needed. Provide clear feedback.
+  expected_output: >
+    A JSON object with the following structure:
+    {
+      "outcome": "approved" | "changes_requested",
+      "merge_request_url": "<URL of the merge request>",
+      "merge_request_iid": "<MR IID number>",
+      "feedback": "<approval message or detailed list of required changes>",
+      "gitlab_project_path": "<gitlab project path>"
+    }
+  agent: mr_reviewer

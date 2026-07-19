@@ -3,10 +3,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: crewai-app
-    container_name: crewai-app
+    image: crewai-jira-dev-flow
+    container_name: crewai-jira-dev-flow
     env_file:
       - .env
     volumes:
       - ./output:/app/output
+      # Mount local projects (adjust paths to match your flow.yaml)
+      # - /path/to/project-alpha:/workspace/project-alpha
+      # - /path/to/project-beta:/workspace/project-beta
     restart: "no"

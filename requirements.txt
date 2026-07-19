@@ -1,2 +1,4 @@
 crewai[google-genai]>=0.86.0
+crewai-tools>=0.17.0
 python-dotenv>=1.0.0
+pyyaml>=6.0

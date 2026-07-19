@@ -1,0 +1,23 @@
+# Flow configuration
+# Configurable project paths and GitLab settings
+
+# Local project paths the agents can access as codebase
+# Add your project directories here
+projects:
+  - path: "/workspace/project-alpha"
+    gitlab_project_path: "my-group/project-alpha"
+    description: "Main backend service"
+  - path: "/workspace/project-beta"
+    gitlab_project_path: "my-group/project-beta"
+    description: "Frontend application"
+  - path: "/workspace/project-gamma"
+    gitlab_project_path: "my-group/project-gamma"
+    description: "Shared libraries"
+
+# Maximum review iterations before escalating to human
+max_review_iterations: 3
+
+# Jira configuration
+jira:
+  # JQL filter to find tasks (overridable via JIRA_JQL env var)
+  default_jql: 'labels = "AI" AND status = "To Do" ORDER BY priority DESC'
