@@ -1,18 +1,18 @@
 .PHONY: run build up up-d down logs clean docker-run
 
 # Run locally (without Docker)
-# Usage: make run TASK=PROJ-123
+# Usage: make run PROJECT=MYPROJ
 run:
-	python -m src.main $(TASK)
+	python -m src.main $(PROJECT)
 
 # Build the Docker image
 build:
 	docker compose build
 
 # Run with docker run (uses local .env for secrets)
-# Usage: make docker-run TASK=PROJ-123
+# Usage: make docker-run PROJECT=MYPROJ
 docker-run: build
-	docker run --rm --env-file .env -v $(PWD)/output:/app/output crewai-jira-dev-flow python -m src.main $(TASK)
+	docker run --rm --env-file .env -v $(PWD)/output:/app/output crewai-jira-dev-flow python -m src.main $(PROJECT)
 
 # Run in Docker via compose (uses local .env for secrets)
 up:
