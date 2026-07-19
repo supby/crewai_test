@@ -25,6 +25,7 @@ from .tools import get_datadog_mcp_config, get_gitlab_mcp_config, get_jira_mcp_c
 class FlowState(BaseModel):
     """Shared state across the flow."""
 
+    jira_project: str = ""
     jira_task_key: str = ""
     analysis_result: dict[str, Any] = {}
     dev_result: dict[str, Any] = {}
@@ -84,9 +85,9 @@ def parse_json_output(output: str) -> dict[str, Any]:
 class JiraDevFlow(Flow[FlowState]):
     """Main flow orchestrating the Jira → Dev → Review pipeline."""
 
-    def __init__(self, jira_task_key: str, **kwargs):
+    def __init__(self, jira_project: str, **kwargs):
         super().__init__(**kwargs)
-        self.state.jira_task_key = jira_task_key
+        self.state.jira_project = jira_project
         self._flow_config = load_flow_config()
         self._agents_config = load_agents_config()
         self._tasks_config = load_tasks_config()
@@ -116,7 +117,7 @@ class JiraDevFlow(Flow[FlowState]):
 
         task = Task(
             description=tasks_cfg["description"].format(
-                jira_task_key=self.state.jira_task_key,
+                jira_project=self.state.jira_project,
                 project_paths=project_paths,
             ),
             expected_output=tasks_cfg["expected_output"],
@@ -134,6 +135,9 @@ class JiraDevFlow(Flow[FlowState]):
                 "summary": str(result),
                 "details": "Could not parse analyzer output as JSON.",
             }
+
+        # Store the resolved task key from analyzer output
+        self.state.jira_task_key = self.state.analysis_result.get("jira_task_key", "")
 
         return self.state.analysis_result.get("outcome", "insufficient_info")
 

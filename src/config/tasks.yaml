@@ -2,13 +2,20 @@
 
 analyze_jira_task:
   description: >
-    Analyze the Jira task: {jira_task_key}
+    Find and analyze the highest-priority Jira task with the "AI" label in
+    project: {jira_project}
 
     Steps:
-    1. Fetch the Jira task details (summary, description, comments, acceptance criteria).
-    2. Check DataDog for any related errors, metrics, or alerts mentioned in the task.
-    3. Examine the relevant project(s) codebase to understand current implementation.
-    4. Determine the scope of work required.
+    1. Search Jira for tasks using JQL:
+       project = "{jira_project}" AND labels = "AI" AND status != "Done"
+       ORDER BY priority DESC, created ASC
+    2. Pick the FIRST task returned (highest priority, oldest).
+       If no tasks are found, return outcome "no_dev_needed" with a message
+       saying there are no AI-labeled tasks to process.
+    3. Fetch full task details (summary, description, comments, acceptance criteria).
+    4. Check DataDog for any related errors, metrics, or alerts mentioned in the task.
+    5. Examine the relevant project(s) codebase to understand current implementation.
+    6. Determine the scope of work required.
 
     Based on your analysis, produce ONE of the following outcomes:
     - "action_needed": A detailed task definition specifying exactly what code changes
@@ -17,18 +24,19 @@ analyze_jira_task:
     - "insufficient_info": If the Jira task lacks critical information needed to proceed.
       Explain what information is missing.
     - "no_dev_needed": If the task does not require any code changes (e.g., it's a
-      question, documentation-only, or already resolved).
+      question, documentation-only, or already resolved, or no tasks found).
 
-    Available projects: {project_paths}
+    Available projects:
+    {project_paths}
   expected_output: >
     A JSON object with the following structure:
     {
       "outcome": "action_needed" | "insufficient_info" | "no_dev_needed",
+      "jira_task_key": "<the selected Jira task key, e.g. PROJ-123>",
       "project_path": "<path to the project requiring changes>",
       "summary": "<brief summary of what needs to be done>",
       "details": "<detailed implementation instructions or explanation>",
-      "affected_files": ["<list of files likely to be modified>"],
-      "jira_task_key": "<the original jira task key>"
+      "affected_files": ["<list of files likely to be modified>"]
     }
   agent: task_analyzer
 
@@ -44,13 +52,29 @@ implement_changes:
     Affected files: {affected_files}
 
     Steps:
+    0. DETECT PROJECT LANGUAGE & TOOLS:
+       - Inspect the project root for manifest files to identify the language and ecosystem:
+         * package.json / package-lock.json / yarn.lock → Node.js/TypeScript (use npm/yarn/pnpm)
+         * pyproject.toml / requirements.txt / setup.py / Pipfile → Python (use pip/poetry/uv)
+         * pom.xml / build.gradle / build.gradle.kts → Java/Kotlin (use maven/gradle)
+         * go.mod → Go (use go build/test)
+         * Cargo.toml → Rust (use cargo)
+         * Gemfile → Ruby (use bundler)
+         * composer.json → PHP (use composer)
+         * Makefile / CMakeLists.txt → C/C++ (use make/cmake)
+       - Install dependencies using the detected package manager (e.g. npm install,
+         pip install -r requirements.txt, mvn dependency:resolve, go mod download, etc.)
+       - Identify linting/formatting tools (eslint, prettier, black, flake8, golangci-lint,
+         clippy, etc.) and ensure they are available.
     1. Read and understand the current code in the affected files.
     2. Create a new branch from the default branch (name it: feature/{jira_task_key}).
     3. Implement the required changes following existing code conventions.
-    4. Commit the changes with a descriptive message referencing the Jira task.
-    5. Push the branch and create a merge request in GitLab.
-    6. The MR title should reference the Jira task key.
-    7. The MR description should explain what was changed and why.
+    4. Run the project's linter/formatter to ensure code style compliance.
+    5. Run existing tests to verify nothing is broken. Fix if needed.
+    6. Commit the changes with a descriptive message referencing the Jira task.
+    7. Push the branch and create a merge request in GitLab.
+    8. The MR title should reference the Jira task key.
+    9. The MR description should explain what was changed and why.
 
     GitLab project path: {gitlab_project_path}
   expected_output: >
@@ -60,6 +84,9 @@ implement_changes:
       "merge_request_iid": "<MR IID number>",
       "branch_name": "<name of the created branch>",
       "changes_summary": "<summary of implemented changes>",
+      "detected_stack": "<detected language/framework/tools>",
+      "tests_passed": true | false,
+      "lint_passed": true | false,
       "gitlab_project_path": "<gitlab project path>"
     }
   agent: developer
@@ -74,9 +101,12 @@ implement_review_fixes:
     Steps:
     1. Read the review comments and understand what changes are required.
     2. Checkout the existing branch: {branch_name}
-    3. Implement the requested fixes.
-    4. Commit and push the changes.
-    5. Reply to review comments indicating the fixes have been made.
+    3. Detect the project's language and tools (inspect manifest files as in initial
+       implementation) and ensure dependencies are installed.
+    4. Implement the requested fixes.
+    5. Run linter/formatter and tests to verify the fixes are correct.
+    6. Commit and push the changes.
+    7. Reply to review comments indicating the fixes have been made.
 
     GitLab project path: {gitlab_project_path}
   expected_output: >
@@ -85,6 +115,8 @@ implement_review_fixes:
       "merge_request_url": "<URL of the merge request>",
       "merge_request_iid": "<MR IID number>",
       "fixes_summary": "<summary of fixes applied>",
+      "tests_passed": true | false,
+      "lint_passed": true | false,
       "gitlab_project_path": "<gitlab project path>"
     }
   agent: developer

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from .crew import JiraDevFlow
+from .crew import JiraDevFlow, load_flow_config
 
 load_dotenv()
 
@@ -16,30 +16,37 @@ OUTPUT_DIR = Path("output")
 
 def run():
     """Run the Jira Dev Flow."""
-    jira_task_key = os.getenv("JIRA_TASK_KEY", "")
+    # Resolve Jira project: CLI arg > env var > flow.yaml default
+    jira_project = ""
+    if len(sys.argv) > 1:
+        jira_project = sys.argv[1]
+    else:
+        jira_project = os.getenv("JIRA_PROJECT", "")
 
-    if not jira_task_key:
-        # Check if passed as CLI argument
-        if len(sys.argv) > 1:
-            jira_task_key = sys.argv[1]
-        else:
-            print("Error: No Jira task key provided.")
-            print("Set JIRA_TASK_KEY env var or pass as argument:")
-            print("  python -m src.main PROJ-123")
-            sys.exit(1)
+    if not jira_project:
+        flow_config = load_flow_config()
+        jira_project = flow_config.get("jira", {}).get("project", "")
 
-    print(f"Starting Jira Dev Flow for task: {jira_task_key}")
+    if not jira_project:
+        print("Error: No Jira project provided.")
+        print("Set JIRA_PROJECT env var, pass as argument, or configure in flow.yaml:")
+        print("  python -m src.main PROJ")
+        sys.exit(1)
+
+    print(f"Starting Jira Dev Flow for project: {jira_project}")
+    print("Will pick the highest-priority task with 'AI' label.")
     print("-" * 50)
 
-    flow = JiraDevFlow(jira_task_key=jira_task_key)
+    flow = JiraDevFlow(jira_project=jira_project)
     result = flow.kickoff()
 
     # Save output
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = OUTPUT_DIR / f"{jira_task_key}_{timestamp}.md"
+    task_key = flow.state.jira_task_key or "no_task"
+    output_file = OUTPUT_DIR / f"{jira_project}_{task_key}_{timestamp}.md"
 
-    output_content = f"""# Flow Result: {jira_task_key}
+    output_content = f"""# Flow Result: {jira_project} / {task_key}
 
 ## Status: {flow.state.final_status}
 
