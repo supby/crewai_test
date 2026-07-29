@@ -27,8 +27,7 @@ RUN npm install -g n && n lts && hash -r
 
 # Install common package managers and dev tools
 RUN npm install -g yarn pnpm && \
-    pip install --no-cache-dir poetry uv && \
-    gem install bundler
+    pip install --no-cache-dir poetry uv
 
 # Install glab CLI for GitLab operations
 RUN curl -fsSL https://gitlab.com/gitlab-org/cli/-/releases/latest/downloads/glab_Linux_x86_64.tar.gz \
