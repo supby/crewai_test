@@ -21,12 +21,12 @@ def get_jira_mcp_config() -> dict[str, Any]:
         "command": "npx",
         "args": [
             "-y",
-            "@anthropic/jira-mcp-server",
+            "@aashari/mcp-server-atlassian-jira",
         ],
         "env": {
-            "JIRA_BASE_URL": os.environ.get("JIRA_BASE_URL", ""),
-            "JIRA_EMAIL": os.environ.get("JIRA_EMAIL", ""),
-            "JIRA_API_TOKEN": os.environ.get("JIRA_API_TOKEN", ""),
+            "ATLASSIAN_SITE_NAME": os.environ.get("JIRA_BASE_URL", "").replace("https://", "").replace(".atlassian.net", ""),
+            "ATLASSIAN_USER_EMAIL": os.environ.get("JIRA_EMAIL", ""),
+            "ATLASSIAN_API_TOKEN": os.environ.get("JIRA_API_TOKEN", ""),
         },
     }
 
@@ -38,12 +38,12 @@ def get_datadog_mcp_config() -> dict[str, Any]:
         "command": "npx",
         "args": [
             "-y",
-            "@anthropic/datadog-mcp-server",
+            "@winor30/mcp-server-datadog",
         ],
         "env": {
-            "DD_API_KEY": os.environ.get("DD_API_KEY", ""),
-            "DD_APP_KEY": os.environ.get("DD_APP_KEY", ""),
-            "DD_SITE": os.environ.get("DD_SITE", "datadoghq.com"),
+            "DATADOG_API_KEY": os.environ.get("DD_API_KEY", ""),
+            "DATADOG_APP_KEY": os.environ.get("DD_APP_KEY", ""),
+            "DATADOG_SITE": os.environ.get("DD_SITE", "datadoghq.com"),
         },
     }
 
@@ -55,10 +55,10 @@ def get_gitlab_mcp_config() -> dict[str, Any]:
         "command": "npx",
         "args": [
             "-y",
-            "@anthropic/gitlab-mcp-server",
+            "@modelcontextprotocol/server-gitlab",
         ],
         "env": {
-            "GITLAB_TOKEN": os.environ.get("GITLAB_TOKEN", ""),
-            "GITLAB_URL": os.environ.get("GITLAB_URL", "https://gitlab.com"),
+            "GITLAB_PERSONAL_ACCESS_TOKEN": os.environ.get("GITLAB_TOKEN", ""),
+            "GITLAB_API_URL": os.environ.get("GITLAB_URL", "https://gitlab.com") + "/api/v4",
         },
     }
