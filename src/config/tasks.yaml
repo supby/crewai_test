@@ -26,14 +26,15 @@ analyze_jira_task:
     - "no_dev_needed": If the task does not require any code changes (e.g., it's a
       question, documentation-only, or already resolved, or no tasks found).
 
-    Available projects:
+    Available projects (will be cloned from GitLab into the workspace):
     {project_paths}
   expected_output: >
     A JSON object with the following structure:
     {
       "outcome": "action_needed" | "insufficient_info" | "no_dev_needed",
       "jira_task_key": "<the selected Jira task key, e.g. PROJ-123>",
-      "project_path": "<path to the project requiring changes>",
+      "gitlab_project_path": "<GitLab project path, e.g. my-group/project-alpha>",
+      "project_path": "<local workspace path where the project will be cloned>",
       "summary": "<brief summary of what needs to be done>",
       "details": "<detailed implementation instructions or explanation>",
       "affected_files": ["<list of files likely to be modified>"]
@@ -42,7 +43,8 @@ analyze_jira_task:
 
 implement_changes:
   description: >
-    Implement the following task in project: {project_path}
+    Implement the following task in project: {gitlab_project_path}
+    (Local workspace path: {project_path})
 
     Task summary: {task_summary}
 
@@ -52,7 +54,13 @@ implement_changes:
     Affected files: {affected_files}
 
     Steps:
-    0. DETECT PROJECT LANGUAGE & TOOLS:
+    0. CLONE THE PROJECT:
+       - Clone the project from GitLab into the workspace directory using glab or git:
+         glab repo clone {gitlab_project_path} {project_path}
+       - Or with git directly:
+         git clone https://oauth2:$GITLAB_TOKEN@$GITLAB_URL/{gitlab_project_path}.git {project_path}
+       - cd into the cloned project directory.
+    1. DETECT PROJECT LANGUAGE & TOOLS:
        - Inspect the project root for manifest files to identify the language and ecosystem:
          * package.json / package-lock.json / yarn.lock → Node.js/TypeScript (use npm/yarn/pnpm)
          * pyproject.toml / requirements.txt / setup.py / Pipfile → Python (use pip/poetry/uv)
@@ -66,15 +74,17 @@ implement_changes:
          pip install -r requirements.txt, mvn dependency:resolve, go mod download, etc.)
        - Identify linting/formatting tools (eslint, prettier, black, flake8, golangci-lint,
          clippy, etc.) and ensure they are available.
-    1. Read and understand the current code in the affected files.
-    2. Create a new branch from the default branch (name it: feature/{jira_task_key}).
-    3. Implement the required changes following existing code conventions.
-    4. Run the project's linter/formatter to ensure code style compliance.
-    5. Run existing tests to verify nothing is broken. Fix if needed.
-    6. Commit the changes with a descriptive message referencing the Jira task.
-    7. Push the branch and create a merge request in GitLab.
-    8. The MR title should reference the Jira task key.
-    9. The MR description should explain what was changed and why.
+    2. Read and understand the current code in the affected files.
+    3. Create a new branch from the default branch (name it: feature/{jira_task_key}).
+    4. Implement the required changes following existing code conventions.
+    5. Run the project's linter/formatter to ensure code style compliance.
+    6. Run existing tests to verify nothing is broken. Fix if needed.
+    7. Commit the changes with a descriptive message referencing the Jira task.
+    8. Push the branch to GitLab.
+    9. Create a merge request using glab CLI:
+       glab mr create --title "{jira_task_key}: <summary>" --description "<description>" --source-branch feature/{jira_task_key}
+    10. The MR title should reference the Jira task key.
+    11. The MR description should explain what was changed and why.
 
     GitLab project path: {gitlab_project_path}
   expected_output: >
@@ -100,13 +110,16 @@ implement_review_fixes:
 
     Steps:
     1. Read the review comments and understand what changes are required.
-    2. Checkout the existing branch: {branch_name}
-    3. Detect the project's language and tools (inspect manifest files as in initial
+    2. Ensure the project is cloned in the workspace. If not already present, clone it:
+       glab repo clone {gitlab_project_path} /workspace/{project_name}
+    3. Checkout the existing branch: {branch_name}
+    4. Detect the project's language and tools (inspect manifest files as in initial
        implementation) and ensure dependencies are installed.
-    4. Implement the requested fixes.
-    5. Run linter/formatter and tests to verify the fixes are correct.
-    6. Commit and push the changes.
-    7. Reply to review comments indicating the fixes have been made.
+    5. Implement the requested fixes.
+    6. Run linter/formatter and tests to verify the fixes are correct.
+    7. Commit and push the changes.
+    8. Reply to review comments using glab:
+       glab mr note {merge_request_iid} --message "Fixed: <summary of fixes>"
 
     GitLab project path: {gitlab_project_path}
   expected_output: >
@@ -128,7 +141,8 @@ review_merge_request:
     MR IID: {merge_request_iid}
 
     Steps:
-    1. Fetch the merge request diff from GitLab.
+    1. Fetch the merge request diff using glab CLI:
+       glab mr diff {merge_request_iid} --repo {gitlab_project_path}
     2. Review the code changes for:
        - Correctness (does it solve the stated problem?)
        - Code quality (clean, readable, follows conventions)
@@ -136,8 +150,10 @@ review_merge_request:
        - Performance (no obvious performance issues)
        - Test coverage (are changes adequately tested?)
     3. Based on your review, produce ONE of the following outcomes:
-       - "approved": The MR is good to merge. Add an "Approved" comment.
-       - "changes_requested": Specific changes are needed. Provide clear feedback.
+       - "approved": The MR is good to merge. Approve with:
+         glab mr approve {merge_request_iid} --repo {gitlab_project_path}
+       - "changes_requested": Specific changes are needed. Add a comment with:
+         glab mr note {merge_request_iid} --repo {gitlab_project_path} --message "<feedback>"
   expected_output: >
     A JSON object with the following structure:
     {

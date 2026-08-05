@@ -47,6 +47,10 @@ RUN curl -fsSL https://dlcdn.apache.org/maven/maven-3/3.9.16/binaries/apache-mav
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Create workspace directory for cloning projects
+RUN mkdir -p /workspace && \
+    git config --global --add safe.directory '*'
+
 # Copy project files
 COPY . .
 

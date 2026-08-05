@@ -1,18 +1,12 @@
 # Flow configuration
 # Configurable project paths and GitLab settings
 
-# Local project paths the agents can access as codebase
-# Add your project directories here
+# Projects the agents can work on (cloned from GitLab into /workspace)
 projects:
-  - path: "/workspace/project-alpha"
-    gitlab_project_path: "my-group/project-alpha"
-    description: "Main backend service"
-  - path: "/workspace/project-beta"
-    gitlab_project_path: "my-group/project-beta"
-    description: "Frontend application"
-  - path: "/workspace/project-gamma"
-    gitlab_project_path: "my-group/project-gamma"
-    description: "Shared libraries"
+  - gitlab_ref: "https://source.tui/cr/tuicom/support-services/book-processing-service"
+    description: "The 'BPS' service. 'Book Processing Service'"
+  - gitlab_ref: "https://source.tui/cr/tuicom/support-services/midoco-service"
+    description: "The 'Midos' service. 'Midoco-Service'"
 
 # Maximum review iterations before escalating to human
 max_review_iterations: 3
@@ -20,4 +14,7 @@ max_review_iterations: 3
 # Jira configuration
 jira:
   # Jira project key (overridable via JIRA_PROJECT env var)
-  project: "PROJ"
+  project: "OKAPI"
+
+# Workspace directory where projects are cloned
+workspace_dir: "/workspace"

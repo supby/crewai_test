@@ -16,7 +16,7 @@ from crewai import Agent, Crew, Process, Task
 from crewai.flow.flow import Flow, listen, router, start
 from pydantic import BaseModel
 
-from .tools import get_datadog_mcp_config, get_gitlab_mcp_config, get_jira_mcp_config
+from .tools import get_datadog_mcp_config, get_jira_mcp_config
 
 
 # --- State ---
@@ -60,11 +60,17 @@ def load_tasks_config() -> dict[str, Any]:
 
 
 def format_project_paths(flow_config: dict) -> str:
-    """Format project paths for agent context."""
+    """Format project info for agent context."""
     projects = flow_config.get("projects", [])
+    workspace_dir = flow_config.get("workspace_dir", "/workspace")
     lines = []
     for p in projects:
-        lines.append(f"- {p['path']} ({p['description']}) -> GitLab: {p['gitlab_project_path']}")
+        gitlab_ref = p["gitlab_ref"]
+        project_name = gitlab_ref.split("/")[-1]
+        local_path = f"{workspace_dir}/{project_name}"
+        lines.append(
+            f"- GitLab: {gitlab_ref} | Local clone: {local_path} | Description: {p['description']}"
+        )
     return "\n".join(lines)
 
 
@@ -109,7 +115,6 @@ class JiraDevFlow(Flow[FlowState]):
             mcps=[
                 get_jira_mcp_config(),
                 get_datadog_mcp_config(),
-                get_gitlab_mcp_config(),
             ],
         )
 
@@ -203,27 +208,35 @@ class JiraDevFlow(Flow[FlowState]):
             backstory=agents_cfg["backstory"],
             llm=agents_cfg.get("llm"),
             verbose=agents_cfg.get("verbose", True),
-            mcps=[get_gitlab_mcp_config()],
         )
 
         analysis = self.state.analysis_result
 
-        # Find gitlab project path from flow config
-        gitlab_project_path = analysis.get("project_path", "")
+        # Resolve gitlab project path from flow config
+        gitlab_project_path = analysis.get("gitlab_project_path", "")
+        workspace_dir = self._flow_config.get("workspace_dir", "/workspace")
         for project in self._flow_config.get("projects", []):
-            if project["path"] == analysis.get("project_path"):
-                gitlab_project_path = project["gitlab_project_path"]
+            if project["gitlab_ref"] == gitlab_project_path:
+                break
+            # Also match if analyzer returned the project name or local path
+            project_name = project["gitlab_ref"].split("/")[-1]
+            local_path = f"{workspace_dir}/{project_name}"
+            if analysis.get("project_path") in (project["gitlab_ref"], local_path, project_name):
+                gitlab_project_path = project["gitlab_ref"]
                 break
 
         if review_feedback:
             # Fix iteration
             tasks_cfg = self._tasks_config["implement_review_fixes"]
+            project_name = gitlab_project_path.split("/")[-1]
             task = Task(
                 description=tasks_cfg["description"].format(
                     merge_request_url=self.state.dev_result.get("merge_request_url", ""),
+                    merge_request_iid=self.state.dev_result.get("merge_request_iid", ""),
                     review_feedback=review_feedback,
                     branch_name=self.state.dev_result.get("branch_name", ""),
                     gitlab_project_path=gitlab_project_path,
+                    project_name=project_name,
                 ),
                 expected_output=tasks_cfg["expected_output"],
                 agent=agent,
@@ -231,9 +244,11 @@ class JiraDevFlow(Flow[FlowState]):
         else:
             # Initial implementation
             tasks_cfg = self._tasks_config["implement_changes"]
+            project_name = gitlab_project_path.split("/")[-1]
+            local_path = f"{workspace_dir}/{project_name}"
             task = Task(
                 description=tasks_cfg["description"].format(
-                    project_path=analysis.get("project_path", ""),
+                    project_path=local_path,
                     task_summary=analysis.get("summary", ""),
                     task_details=analysis.get("details", ""),
                     affected_files=", ".join(analysis.get("affected_files", [])),
@@ -279,7 +294,6 @@ class JiraDevFlow(Flow[FlowState]):
             backstory=agents_cfg["backstory"],
             llm=agents_cfg.get("llm"),
             verbose=agents_cfg.get("verbose", True),
-            mcps=[get_gitlab_mcp_config()],
         )
 
         task = Task(

@@ -9,7 +9,8 @@ services:
       - .env
     volumes:
       - ./output:/app/output
-      # Mount local projects (adjust paths to match your flow.yaml)
-      # - /path/to/project-alpha:/workspace/project-alpha
-      # - /path/to/project-beta:/workspace/project-beta
+      - workspace:/workspace
     restart: "no"
+
+volumes:
+  workspace:

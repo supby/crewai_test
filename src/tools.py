@@ -47,18 +47,3 @@ def get_datadog_mcp_config() -> dict[str, Any]:
         },
     }
 
-
-def get_gitlab_mcp_config() -> dict[str, Any]:
-    """GitLab MCP server configuration (stdio transport)."""
-    return {
-        "type": "stdio",
-        "command": "npx",
-        "args": [
-            "-y",
-            "@modelcontextprotocol/server-gitlab",
-        ],
-        "env": {
-            "GITLAB_PERSONAL_ACCESS_TOKEN": os.environ.get("GITLAB_TOKEN", ""),
-            "GITLAB_API_URL": os.environ.get("GITLAB_URL", "https://gitlab.com") + "/api/v4",
-        },
-    }
